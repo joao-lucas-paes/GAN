@@ -20,7 +20,7 @@ class Discriminator(nn.Module):
             nn.Conv2d(512, 1, 4, 1, 0, bias=False),
             nn.AdaptiveAvgPool2d((1,1)),
             nn.Flatten(),
-            nn.Linear(1,1)
+            nn.Linear(1,1, bias=False)
         )
 
     def forward(self, input):

@@ -18,7 +18,8 @@ class Gan():
         self.g_optimizer = optim.Adam(self.generator.parameters(), lr=lr)
         self.d_optimizer = optim.Adam(self.discrimator.parameters(), lr=lr)
 
-        self.criterion = nn.MSELoss().to(DEVICE)
+        self.d_criterion = nn.BCELoss().to(DEVICE)
+        self.g_criterion = nn.BCEWithLogitsLoss().to(DEVICE)
         self.wasserstein = optim.RMSprop(self.discrimator.parameters(), lr=lr)
 
         self.in_channels = in_channels
@@ -80,10 +81,10 @@ class Gan():
         self.d_optimizer.zero_grad()
 
         r_output = self.discrimator(r_img)
-        r_loss = self.criterion(r_output, r_labels)
+        r_loss = self.d_criterion(r_output, r_labels)
 
         f_output = self.discrimator(f_img.detach())
-        f_loss = self.criterion(f_output, f_labels)
+        f_loss = self.d_criterion(f_output, f_labels)
 
         loss = r_loss + f_loss
         loss.backward()
@@ -99,7 +100,7 @@ class Gan():
 
         f_img = self.generator(noise).to(DEVICE)
         output = self.discrimator(f_img)
-        loss = self.criterion(output, r_label)
+        loss = self.g_criterion(output, r_label)
         loss.backward()
 
         self.g_optimizer.step()
