@@ -1,4 +1,4 @@
 *.pth
 data/**
 nasa_rwanda_field_boundary_competition/**
-
+*.pyc
