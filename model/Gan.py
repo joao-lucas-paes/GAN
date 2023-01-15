@@ -57,7 +57,7 @@ class Gan():
     def train(self, img_path:str, mask_path:str, transform=None, epochs:int=200, batch_size:int=100) -> None:
         """ train process abstracted """
         [r_labels, f_labels] = self.generate_labels(batch_size)
-        noise = torch.randn(batch_size, self.in_channels, 1, 1).to(DEVICE)
+        noise = torch.randn(batch_size, self.in_channels, 256, 256).to(DEVICE)
         data_loader = CustomDataset(img_path, mask_path, transform)
 
         for epoch in range(epochs):
@@ -108,9 +108,9 @@ class Gan():
         return loss
 
     def save(self):
-        torch.save(self.discrimator, "disc.pth")
-        torch.save(self.generator, "gen.pth")
+        torch.save(self.discrimator.state_dict(), "disc.pth")
+        torch.save(self.generator.state_dict(), "gen.pth")
     
     def load(self, path="./"):
-        self.discrimator = torch.load(path + "disc.pth")
-        self.generator = torch.load(path + "disc.pth")
+        self.discrimator.load_state_dict(torch.load(path + "disc.pth"))
+        self.generator.load_state_dict(torch.load(path + "gen.pth"))

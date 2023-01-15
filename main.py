@@ -36,4 +36,4 @@ model_test = Gan(256, 4)
 
 [img_t, mask_t, _, __] = getImgs()
 
-model_test.train(img_t, mask_t, train_transform, 1000, 4)
+model_test.train(img_t, mask_t, train_transform, 1000, 2)
