@@ -25,4 +25,5 @@ class Discriminator(nn.Module):
         )
 
     def forward(self, input):
-        return self.main(input).view(-1)
+        output = self.main(input)
+        return output.view(-1)

@@ -1,4 +1,6 @@
+from os import walk
 from torch.utils.data import Dataset
+from PIL import Image
 import torch
 import numpy as np
 import rasterio
@@ -26,3 +28,24 @@ class CustomDataset(Dataset):
             mask = augmentations["mask"]
 
         return image, mask
+
+PATH_IMAGE_CARTOON = "./archive/cartoonset10k"
+
+class CartoonDataset(Dataset):
+    def __init__(self, transform=None):
+        self.image_paths = next(walk(PATH_IMAGE_CARTOON), (None, None, []))[2]
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, index):
+        path = f'{PATH_IMAGE_CARTOON}/{self.image_paths[index]}'
+        image = np.asarray(Image.open(path))
+        image = image.reshape((500, 500, 4))
+
+        if self.transform is not None:
+            augmentations = self.transform(image=image)
+            image = augmentations["image"]
+
+        return image
