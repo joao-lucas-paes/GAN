@@ -41,8 +41,9 @@ class CartoonDataset(Dataset):
 
     def __getitem__(self, index):
         path = f'{PATH_IMAGE_CARTOON}/{self.image_paths[index]}'
-        image = np.asarray(Image.open(path))
-        image = image.reshape((500, 500, 4))
+        im = Image.open(path)
+        image = np.asarray(im)
+        image = image.reshape((im.width, im.height, 4))
 
         if self.transform is not None:
             augmentations = self.transform(image=image)

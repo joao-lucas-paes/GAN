@@ -34,7 +34,7 @@ def getImgs():
     return [img_train, mask_train, img_val, mask_val]
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model_test = Gan(500, 4)
+model_test = Gan(500, 4, lr=1e-4)
 
 model_test.load()
 
@@ -56,4 +56,4 @@ model_test.load()
 
 [img_t, mask_t, _, __] = getImgs()
 
-model_test.train(img_t, mask_t, train_transform, 300, 2)
+model_test.train(img_t, mask_t, train_transform, 300, 16)
