@@ -12,8 +12,7 @@ IMAGE_WIDTH  = 500
 train_transform = A.Compose([
     A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
     A.Rotate(limit=35, p=.40),
-    A.HorizontalFlip(p=0.4),
-    A.VerticalFlip(p=0.1),
+    A.VerticalFlip(p=0.3),
     A.ToFloat(max_value=255),
     ToTensorV2(),
 ],)

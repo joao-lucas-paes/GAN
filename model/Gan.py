@@ -19,15 +19,15 @@ class Gan():
         self.generator = Generator(in_bands, in_bands, 512).to(DEVICE)
         self.discriminator = Discriminator(in_bands).to(DEVICE)
 
-        self.g_optimizer = optim.Adam(self.generator.parameters(), lr=lr)
-        self.d_optimizer = optim.Adam(self.discriminator.parameters(), lr=lr)
+        self.g_optimizer = optim.AdamW(self.generator.parameters(), lr=lr)
+        self.d_optimizer = optim.AdamW(self.discriminator.parameters(), lr=lr)
 
         self.d_criterion = nn.BCELoss().to(DEVICE)
         self.g_criterion = nn.MSELoss().to(DEVICE)
         self.wasserstein = optim.RMSprop(self.discriminator.parameters(), lr=lr)
 
         self.d_scheduler = optim.lr_scheduler.StepLR(self.d_optimizer, gamma=0.1, step_size=10)
-        self.g_scheduler = optim.lr_scheduler.StepLR(self.g_optimizer, gamma=0.1, step_size=20)
+        self.g_scheduler = optim.lr_scheduler.StepLR(self.g_optimizer, gamma=0.1, step_size=10)
 
         self.in_channels = in_channels
         self.in_bands = in_bands
@@ -124,7 +124,7 @@ class Gan():
         f_output = self.discriminator(f_img)
         f_loss = self.d_criterion(f_output, f_labels)
 
-        loss = (r_loss + f_loss) / 2
+        loss = (r_loss + f_loss) 
         loss.backward()
 
         self.clipping_fn()
