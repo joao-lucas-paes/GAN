@@ -1,66 +1,18 @@
-from typing import List
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import numpy as np
+from torchvision.utils import save_image
 
-from model.Generator_GAN_DCGAN import Generator
-from model.Discriminator_GAN_DCGAN import Discriminator
-from model.CustomDataset import CartoonDataset
-from PIL import Image
+import matplotlib.pyplot as plt 
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-CLIP_VALUE = 0.01
+class Gan:
+    def __init__(self, generator, discriminator):
+        self.generator = generator
+        self.discriminator = discriminator
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
-
-class Gan():
-    def __init__(self, in_channels=3, in_bands=3, lr=1e-5) -> None:
-        self.generator = Generator(in_bands, in_bands, 512).to(DEVICE)
-        self.discriminator = Discriminator(in_bands).to(DEVICE)
-
-        self.g_optimizer = optim.AdamW(self.generator.parameters(), lr=lr)
-        self.d_optimizer = optim.AdamW(self.discriminator.parameters(), lr=lr)
-
-        self.d_criterion = nn.BCELoss().to(DEVICE)
-        self.g_criterion = nn.MSELoss().to(DEVICE)
-        self.wasserstein = optim.RMSprop(self.discriminator.parameters(), lr=lr)
-
-        self.d_scheduler = optim.lr_scheduler.StepLR(self.d_optimizer, gamma=0.1, step_size=10)
-        self.g_scheduler = optim.lr_scheduler.StepLR(self.g_optimizer, gamma=0.1, step_size=10)
-
-        self.in_channels = in_channels
-        self.in_bands = in_bands
-
-    @staticmethod
-    def generate_labels(size:int) -> List[torch.Tensor]:
-        return [
-            torch.ones(size).to(DEVICE), 
-            torch.zeros(size).to(DEVICE)
-        ]
-    
-    def printStatus(self, d_values, g_values, epoch_num) -> None:
-        """ Show status train """
-        print("\r=======================================")
-        print(f"Epoch {epoch_num}:")
-        print("d_loss: \t | \t g_loss:")
-        print(f"{d_values.item():.8f} \t | \t {g_values.item():.8f}")
-        print("d_lr: \t | \t g_lr:")
-        print(f"{self.d_optimizer.param_groups[0]['lr']} \t | \t {self.g_optimizer.param_groups[0]['lr']}")
-        print("=======================================")
-
-    def printStatusD(self, d_values, epoch_num) -> None:
-        """ Show status train """
-        print("\r=======================================")
-        print(f"Epoch {epoch_num}:")
-        print("d_loss: \t | \t g_loss:")
-        print(f"{d_values.item():.8f} \t | \t {'não treinado'}")
-        print("d_lr: \t | \t g_lr:")
-        print(f"{self.d_optimizer.param_groups[0]['lr']} \t | \t {self.g_optimizer.param_groups[0]['lr']}")
-        print("=======================================")
-    
     def get_tensors_img(self, index, batch_size, data_loader) -> torch.Tensor:
-        output = torch.empty(batch_size, self.in_bands, self.in_channels, self.in_channels)
+        output = torch.empty(batch_size, 3, 64, 64)
         
         for i in range(batch_size):
             index_in = index + i
@@ -70,94 +22,76 @@ class Gan():
                 break
 
         return output
-
-
-    def train(self, img_path:str, mask_path:str, transform=None, epochs:int=200, batch_size:int=100) -> None:
-        """ train - process abstracted """
-        [r_labels, f_labels] = self.generate_labels(batch_size)
-        noise = torch.randn(batch_size, self.in_bands, 32, 32).to(DEVICE)
-        data_loader = CartoonDataset(transform)
-
-        for epoch in range(epochs):
-            d_loss, g_loss = None, None
-            for index in range(0, len(data_loader), batch_size):
-                real_img = self.get_tensors_img(index, batch_size, data_loader).to(DEVICE)
-                
-                d_loss = self.discriminator_train(real_img, r_labels, f_labels, noise)
-                if (epoch % 2 != 0):
-                    g_loss = self.generator_train(r_labels, noise)
-
-                Gan.print_progress(index, len(data_loader))
-
-            with torch.no_grad():
-                self.d_scheduler.step()
-                self.g_scheduler.step()
-            
-                self.save(epoch)
-                if (epoch % 2 == 0):
-                    self.printStatusD(d_loss, epoch)
-                else:
-                    self.printStatus(d_loss, g_loss, epoch)
-    
-    @staticmethod
-    def print_progress(index, length):
-        perc = 100 * index / length
-        in_bars = int(perc/2.5)
-        bar = "█" * in_bars
-        invisible_side = " " * (40 - in_bars)
-        print(f"Progress: {perc:.2f}% |{bar}{invisible_side}|", end="\r")
-
-    def clipping_fn(self):
-        for p in self.discriminator.parameters():
-            p.data.clamp_(-CLIP_VALUE, CLIP_VALUE)
-        self.wasserstein.step()
-
-    def discriminator_train(self, r_img,  r_labels, f_labels, noise) -> tuple:
-        """ train the discriminator """
-        f_img = self.generator(noise).to(DEVICE)
-
-        self.d_optimizer.zero_grad()
-
-        r_output = self.discriminator(r_img)
-        r_loss = self.d_criterion(r_output, r_labels)
-
-        f_output = self.discriminator(f_img)
-        f_loss = self.d_criterion(f_output, f_labels)
-
-        loss = (r_loss + f_loss) 
-        loss.backward()
-
-        self.clipping_fn()
-        self.d_optimizer.step()
         
-        return loss
-    
-    def generator_train(self, r_label, noise):
-        """ train the generator """
-        f_img = self.generator(noise).to(DEVICE)
+    def train(self, dataloader, num_epochs, batch_size, lr, lr_milestones=[15, 30], gamma=0.5):
+        criterion = nn.BCELoss()
+        
+        optimizerD = optim.Adam(self.discriminator.parameters(), lr=lr, betas=(0.5, 0.999))
+        optimizerG = optim.Adam(self.generator.parameters(), lr=lr, betas=(0.5, 0.999))
+        
+        schedulerD = optim.lr_scheduler.MultiStepLR(optimizerD, milestones=lr_milestones, gamma=gamma)
+        schedulerG = optim.lr_scheduler.MultiStepLR(optimizerG, milestones=lr_milestones, gamma=gamma)
+        
+        self.generator.to(self.device)
+        self.discriminator.to(self.device)
+        
+        fixed_noise = torch.randn(batch_size, 3, 4, 4, device=self.device)
+        ds_size = len(dataloader)
+        
+        for epoch in range(num_epochs):
+            self.generator.train()
+            self.discriminator.train()
 
-        self.g_optimizer.zero_grad()
+            lossG = lossD_fake = lossD_real = 0
 
-        output = self.discriminator(f_img)
-        loss = self.g_criterion(output, r_label)
-        loss.backward()
+            output = [0]
 
-        self.g_optimizer.step()
+            for i in range(0, ds_size, batch_size):
+                data = self.get_tensors_img(i, batch_size, dataloader)
+                
+                real_images = data.to(self.device)
+                real_labels = torch.full((batch_size,), 1, dtype=torch.float, device=self.device)
+                fake_labels = torch.full((batch_size,), 0, dtype=torch.float, device=self.device)
+                noise = torch.randn(batch_size, 3, 4, 4, device=self.device)
+                fake_images = self.generator(noise)
 
-        return loss
+                
+                if epoch % 1 == 0:
+                    optimizerD.zero_grad()
+                    output = self.discriminator(real_images)
+                    lossD_real = criterion(output, real_labels)
+                    lossD_real.backward()
 
-    def save(self, epoch):
-        torch.save(self.discriminator.state_dict(), "disc.pth")
-        torch.save(self.generator.state_dict(), "gen.pth")
-        noise = torch.randn(1, self.in_bands, 32, 32)
-        img = self.imgs_out(noise)[0]
-        Image.fromarray(img, "RGBA").save(f"./out/gen_{epoch}.png")
-    
-    def load(self, path="./"):
-        self.discriminator.load_state_dict(torch.load(path + "disc.pth"))
-        self.generator.load_state_dict(torch.load(path + "gen.pth"))
+                    output = self.discriminator(fake_images.detach())
+                    lossD_fake = criterion(output, fake_labels)
+                    lossD_fake.backward()
+                    optimizerD.step()
 
-    def imgs_out(self, noise):
-        noise_device = noise.to(DEVICE)
-        imgs = self.generator(noise_device).cpu().detach().clamp_(0, 1).numpy().transpose(0, 2, 3, 1).astype(np.float32)
-        return (imgs * 255).astype(np.uint8)
+                
+                optimizerG.zero_grad()
+                output = self.discriminator(fake_images)
+                lossG = criterion(output, real_labels)
+                lossG.backward()
+                optimizerG.step()
+
+                coef_perc = 2.5
+                perc = (100*i/ds_size)
+                squad_qtd = int(perc/coef_perc)
+                squad = squad_qtd * "█"
+                clear = (int(100/coef_perc) - squad_qtd) * " "
+                print(f"Progress {perc:.2f}%:|{squad}{clear}|", end="\r")
+
+            schedulerD.step()
+            schedulerG.step()
+            
+            with torch.no_grad():
+                fake_images = self.generator(fixed_noise)
+                save_image(fake_images, f"output/{epoch}.png", nrow=int(batch_size**0.5), normalize=True)
+            if epoch % 1 == 0:
+                print(f"Epoch: {epoch}, D_real: {lossD_real.item():.4f}, D_fake: {lossD_fake.item():.4f}, G: {lossG.item():.4f}\r")
+                print(output[0])
+            else:
+                print(f"Epoch: {epoch}, G: {lossG.item():.4f}\r")
+
+            torch.save(self.generator.state_dict(), f"models/generator_epoch_{num_epochs}.pth")
+            torch.save(self.discriminator.state_dict(), f"models/discriminator_epoch_{num_epochs}.pth")

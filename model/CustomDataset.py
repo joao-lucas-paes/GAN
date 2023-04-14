@@ -16,7 +16,7 @@ class CustomDataset(Dataset):
 
     def __getitem__(self, index):
         path = f'{self.image_paths[index]}/{self.image_paths[index].split("/")[-1]}.npy'
-        image = np.load(path).reshape((256, 256, 4))
+        image = np.load(path).reshape((512, 512, 4))
 
         path = self.mask_paths[index]
         with rasterio.open(f'{path}/raster_labels.tif') as dataset:
@@ -29,7 +29,7 @@ class CustomDataset(Dataset):
 
         return image, mask
 
-PATH_IMAGE_CARTOON = "./archive/cartoonset10k"
+PATH_IMAGE_CARTOON = "./archive/anime_data"
 
 class CartoonDataset(Dataset):
     def __init__(self, transform=None):
@@ -43,7 +43,6 @@ class CartoonDataset(Dataset):
         path = f'{PATH_IMAGE_CARTOON}/{self.image_paths[index]}'
         im = Image.open(path)
         image = np.asarray(im)
-        image = image.reshape((im.width, im.height, 4))
 
         if self.transform is not None:
             augmentations = self.transform(image=image)

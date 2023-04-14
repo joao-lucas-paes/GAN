@@ -1,18 +1,21 @@
 from model.Gan import Gan
 from albumentations.pytorch import ToTensorV2
+from model.CustomDataset import CartoonDataset
+from model.Discriminator_GAN_DCGAN import Discriminator
+from model.Generator_GAN_DCGAN import Generator
 
 import numpy as np
 import matplotlib.pyplot as plt
 import albumentations as A
 import torch
 
-IMAGE_HEIGHT = 500
-IMAGE_WIDTH  = 500
+IMAGE_HEIGHT = 64
+IMAGE_WIDTH  = 64
 
 train_transform = A.Compose([
     A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
     A.Rotate(limit=35, p=.40),
-    A.VerticalFlip(p=0.3),
+    A.HorizontalFlip(p=0.4),
     A.ToFloat(max_value=255),
     ToTensorV2(),
 ],)
@@ -33,9 +36,10 @@ def getImgs():
     return [img_train, mask_train, img_val, mask_val]
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model_test = Gan(500, 4, lr=1e-4)
+gen = Generator(3, 3, 64)
+disc = Discriminator(3)
+model_test = Gan(gen, disc)
 
-model_test.load()
 
 # noise = torch.randn(4, 4, 500, 500).to(DEVICE)
 
@@ -55,4 +59,4 @@ model_test.load()
 
 [img_t, mask_t, _, __] = getImgs()
 
-model_test.train(img_t, mask_t, train_transform, 300, 16)
+model_test.train(CartoonDataset(train_transform), 400, 256, 0.00005)
